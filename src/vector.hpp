@@ -67,7 +67,7 @@ namespace asd
     {
     public:
         allocator() = default;
-        virtual ~allocator() {}
+        virtual ~allocator() noexcept {}
 
         /*
         allocates raw memory that can hold n T items, 
@@ -89,7 +89,7 @@ namespace asd
         /*
         deallocates the memory pointed by ptr
         */
-        void deallocate(T* ptr)
+        void deallocate(T* ptr) noexcept
         {
             free(ptr);
         }
@@ -106,14 +106,14 @@ namespace asd
         T *m_data_ptr; //pointer to the allocated memory
         allocator<T> m_allocator; 
 
-        void reset()
+        void reset() noexcept
         {
             m_count = 0;
             m_capacity = 0;
             m_data_ptr = nullptr;
         }
         
-        void init(std::size_t capacity, std::size_t count, T *data_ptr)
+        void init(std::size_t capacity, std::size_t count, T *data_ptr) noexcept
         {
             m_count = count;
             m_capacity = capacity;
@@ -135,12 +135,20 @@ namespace asd
             init(new_capacity, m_count, new_data_ptr);
         }
 
+        void destroy() noexcept
+        {
+            if constexpr (!std::is_trivially_destructible_v<T>)
+            {
+                std::destroy(m_data_ptr, m_data_ptr + m_count);
+            }
+            m_allocator.deallocate(m_data_ptr);
+        }
     public:
 
         /*
         non-prameterized consructor
         */
-        vector()
+        vector() noexcept
         {
             reset();
         }
@@ -163,8 +171,34 @@ namespace asd
         /*
         move constructor
         */
-        vector(vector &&other)
+        vector(vector &&other) noexcept
         {
+            init(other.m_capacity, other.m_count, other.m_data_ptr);
+            other.reset();
+        }
+        
+        /*
+        copy assignment operator
+        */
+        vector& operator= (const vector& other)
+        {
+            if(m_capacity < other.m_count)
+            {
+                T* new_data_ptr = m_allocator.allocate(other.m_count);
+                destroy();
+                m_data_ptr = new_data_ptr;
+            }
+            asd::copy(other.m_data_ptr, other.m_count, m_data_ptr);
+            init(other.size(), other.size(), m_data_ptr);
+            return *this;
+        }
+
+        /*
+        move assignment operator
+        */
+        vector& operator= (vector&& other) noexcept
+        {
+            destroy();
             init(other.m_capacity, other.m_count, other.m_data_ptr);
             other.reset();
         }
@@ -172,13 +206,9 @@ namespace asd
         /*
         destructor
         */
-        virtual ~vector()
+        virtual ~vector() noexcept
         {
-            if constexpr (!std::is_trivially_destructible_v<T>)
-            {
-                std::destroy(m_data_ptr, m_data_ptr + m_count);
-            }
-            m_allocator.deallocate(m_data_ptr);
+            destroy();
         }
 
         /*
@@ -230,12 +260,12 @@ namespace asd
             return m_data_ptr[idx];
         }
 
-        std::size_t size() const
+        std::size_t size() const noexcept
         {
             return m_count;
         }
 
-        std::size_t capacity() const
+        std::size_t capacity() const noexcept
         {
             return m_capacity;
         }
