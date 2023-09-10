@@ -47,7 +47,7 @@ namespace asd
     }
 
     /*
-    asd::move(T *input, int count, T *output)
+    asd::copy(T *input, int count, T *output)
     initializes count items in output array from input array by copying
     */
     template <typename T>
